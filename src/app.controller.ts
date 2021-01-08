@@ -22,6 +22,7 @@ export class AppController {
   constructor() {}
   clientObject = new ClientMqtt({ url: 'mqtt:localhost:1883' }).createClient();
 
+  //Function for publishing to iota/tangle network
   publish = async packet => {
     // Create MAM message as a string of trytes
     const trytes = asciiToTrytes(JSON.stringify(packet));
@@ -36,15 +37,18 @@ export class AppController {
     return message.root;
   };
 
+  //Subscribed to Mqtt channel message
   @MessagePattern('message')
   async getNotifications(
     @Payload() data: number[],
     @Ctx() context: MqttContext,
   ) {
+    //publish to iota network
     const root = await this.publish({
       message: data,
       timestamp: new Date().toLocaleString(),
     });
+    //fetch message from iota network
     const result = await Mam.fetch(root, mode, sideKey);
     if (result instanceof Error) throw new Error(result.stack);
     result.messages.forEach(message =>
@@ -54,6 +58,7 @@ export class AppController {
         '\n',
       ),
     );
+    //publish message to mqtt channel
     this.clientObject.publish('message_ack', `Message pubished to MAM. Verify with MAM Explorer:\n${mamExplorerLink}/${root}/${mode}/${sideKey.padEnd(81, '9')}/${providerName}\n`);
     console.log(`Published to MQTT ->  Topic: ${context.getTopic()}`, `Message : ${data}`);
     console.log(`Verify with MAM Explorer:\n${mamExplorerLink}/${root}/${mode}/${sideKey.padEnd(81, '9')}/${providerName}\n`)
